@@ -32,6 +32,5 @@ export function generateTeam(allowedTypes, maxLevel, characterCount) {
   for (let i = 0; i < characterCount; i++) {
     charactersArray.push(teamGenerator.next().value);
   }
-  console.log(charactersArray);
   return new Team(charactersArray);
 }
