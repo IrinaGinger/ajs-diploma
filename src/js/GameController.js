@@ -1,3 +1,5 @@
+import themes from './themes';
+
 import Bowman from './characters/Bowman';
 import Swordsman from './characters/Swordsman';
 import Magician from './characters/Magician';
@@ -11,36 +13,61 @@ import {generateTeam} from './generators';
 
 import tooltipString from './tooltip';
 
+import GamePlay from './GamePlay';
+import GameState from './GameState';
+
 export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
 
-    this.playerTeam = {};              // команда игрока 
-    this.computerTeam = {};            // команда компьютера
-
+    this.currentTheme = '';             // текущая тема
+    this.playerTeam = {};               // команда игрока
+    this.computerTeam = {};             // команда компьютера
     this.positionedCharacters = [];     // массив позиционированных персонажей 
-   //  this.computerPosCharacters = [];   // массив позиционированных персонажей компьютера
+
+    this.activePlayer = 1;              // чей следующий ход (1 - игрок, 2 - компьютер)
+    this.lastIndex = null;              // последняя выбранная ячейка с персонажем игрока
   }
 
   init() {
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
+    
+    this.currentTheme = themes.prairie;
+    this.gamePlay.drawUi(this.currentTheme);
 
-    this.gamePlay.drawUi('prairie');
+    const charactersNumber = 2;                                                        // количество персонажей игрока и компьютера
+    const levelNumber = 4;                                                             // количество уровней персонажей
+    const playerTypes = [Bowman, Swordsman, Magician];                                 // доступные классы игрока
+    const computerTypes = [Vampire, Undead, Daemon];                                   // доступные классы компьютера
 
-    const charactersNumber = 2;                                                       // количество персонажей игрока и компьютера
-    const levelNumber = 4;                                                            // количество уровней персонажей
-    const playerTypes = [Bowman, Swordsman, Magician];                                // доступные классы игрока
-    const computerTypes = [Vampire, Undead, Daemon];                                  // доступные классы компьютера
+    this.teamStart(charactersNumber, levelNumber, playerTypes, computerTypes);
 
-    this.playerTeam = generateTeam(playerTypes, levelNumber, charactersNumber);      // формирование команды игрока 
-    this.computerTeam = generateTeam(computerTypes, levelNumber, charactersNumber);  // формирование команды компьютера 
+    this.gamePlay.redrawPositions(this.positionedCharacters);
+
+    GameState.from({
+      theme: this.currentTheme,
+      playerTeam: this.playerTeam,
+      computerTeam: this.computerTeam,
+      positionedCharacters: this.positionedCharacters,
+      lastIndex: this.lastIndex,
+      activePlayer: this.activePlayer,
+    });
+    
+    this.addingCellListener('Enter');
+    this.addingCellListener('Leave');
+    this.addingCellListener('Click');
+  }
+
+  teamStart(charNumber, levelNumber, playerTypes, computerTypes) {
+    this.playerTeam = generateTeam(playerTypes, levelNumber, charNumber);      // формирование команды игрока 
+    this.computerTeam = generateTeam(computerTypes, levelNumber, charNumber);  // формирование команды компьютера 
 
     let isPosition;
 
     let i = 0;
-    while (i < charactersNumber) {
+    while (i < charNumber) {
       let playerCharPosition = Math.floor(Math.random() * (this.gamePlay.boardSize)) * this.gamePlay.boardSize + i;
       isPosition = false;
 
@@ -58,7 +85,7 @@ export default class GameController {
     }
 
     i = 0;
-    while (i < charactersNumber) {
+    while (i < charNumber) {
       let computerCharPosition = Math.floor(Math.random() * (this.gamePlay.boardSize)) * this.gamePlay.boardSize + (this.gamePlay.boardSize - i - 1);
       isPosition = false;
 
@@ -74,18 +101,13 @@ export default class GameController {
         i++;
       }
     }
-
-    this.gamePlay.redrawPositions(this.positionedCharacters);
-    
-    this.addingCellListener('Enter');
-    this.addingCellListener('Leave');
-    this.addingCellListener('Click');
   }
 
   addingCellListener(eventType) { 
-//addCellEnterListener - onCellEnter
-//addCellLeaveListener - onCellLeave
-//addCellClickListener - onCellClick
+    //addCellEnterListener - onCellEnter
+    //addCellLeaveListener - onCellLeave
+    //addCellClickListener - onCellClick
+
     let listener = `addCell${eventType}Listener`;
     let callback = `onCell${eventType}`;
     
@@ -95,11 +117,47 @@ export default class GameController {
 
  onCellClick(index) {
     // TODO: react to click
-    console.log('click ', index);                 // !!!временно!!!
+    console.log(GameState.state);
+    if (GameState.state.activePlayer === 1) {
+
+      if (this.gamePlay.cells[index].hasChildNodes()) {
+        const charType = this.gamePlay.cells[index].firstChild.classList[1];
+        let isType = false;
+        
+        for (let j = 0; j < this.playerTeam.characters.length; j++) {
+          if (this.playerTeam.characters[j].type === charType) {
+            isType = true;
+            break;
+          }
+        }
+
+        if (isType) {
+          if (this.lastIndex != null) {
+            this.gamePlay.deselectCell(this.lastIndex);
+          }
+          this.gamePlay.selectCell(index);
+          this.lastIndex = index;
+
+          GameState.from({
+            theme: this.currentTheme,
+            playerTeam: this.playerTeam,
+            computerTeam: this.computerTeam,
+            positionedCharacters: this.positionedCharacters,
+            lastIndex: this.lastIndex,
+            activePlayer: this.activePlayer,
+          });
+        } else {
+          GamePlay.showError("Чужой персонаж");
+        }
+
+      } else {
+        GamePlay.showError("Ячейка пуста");
+      }
+    }
   }
 
   onCellEnter(index) {
-    // TODO: react to mouse enter
+    // react to mouse enter
     let tooltip;
 
     if (this.gamePlay.cells[index].hasChildNodes()) {
@@ -115,7 +173,7 @@ export default class GameController {
   }
 
   onCellLeave(index) {
-    // TODO: react to mouse leave
+    // react to mouse leave
     this.gamePlay.hideCellTooltip(index);
   }
 }
