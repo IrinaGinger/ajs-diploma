@@ -1,5 +1,5 @@
 import tooltipString from '../tooltip';
-import Bowman from '../characters/Bowman';
+import Bowman from '../../characters/Bowman';
 
 const bowman = new Bowman(1);
 

@@ -19,6 +19,8 @@ test('создается объект класса Bowman с правильны�
         health: 50,
         attack: 25,
         defence: 25,
+        moving: 2,
+        longrange: 2,
     }
     expect(bowman).toEqual(correct);
 });
@@ -30,6 +32,8 @@ test('создается объект класса Daemon с правильны�
         health: 50,
         attack: 10,
         defence: 10,
+        moving: 1,
+        longrange: 4,
     }
     expect(daemon).toEqual(correct);
 });
@@ -41,6 +45,8 @@ test('создается объект класса Magician с правильн�
         health: 50,
         attack: 10,
         defence: 40,
+        moving: 1,
+        longrange: 4,
     }
     expect(magician).toEqual(correct);
 });
@@ -52,6 +58,8 @@ test('создается объект класса Swordsman с правильн
         health: 50,
         attack: 40,
         defence: 10,
+        moving: 4,
+        longrange: 1,
     }
     expect(swordsman).toEqual(correct);
 });
@@ -63,6 +71,8 @@ test('создается объект класса Undead с правильны�
         health: 50,
         attack: 40,
         defence: 10,
+        moving: 4,
+        longrange: 1,
     }
     expect(undead).toEqual(correct);
 });
@@ -74,6 +84,8 @@ test('создается объект класса Vampire с правильны
         health: 50,
         attack: 25,
         defence: 25,
+        moving: 2,
+        longrange: 2,
     }
     expect(vampire).toEqual(correct);
 });
