@@ -24,8 +24,8 @@ export default class GameController {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
 
-    this.activePlayer = 'user';         // текущий игрок (чей следующий ход)
-    this.aimIndex = null;               // последняя ячейка, выделенная зеленым или красным цветом
+    this.greenIndex = null;               // последняя ячейка, выделенная зеленым цветом
+    this.redIndex = null;                 // последняя ячейка, выделенная красным цветом
   }
 
   init() {
@@ -35,13 +35,13 @@ export default class GameController {
     let currentTheme = themes.prairie;
     this.gamePlay.drawUi(currentTheme);
 
-    const charactersNumber = 2;                               // количество персонажей игрока и компьютера
+    const charactersNumber = 2;                               // количество персонажей пользователя и компьютера
     const levelNumber = 4;                                    // количество уровней персонажей
-    const userTypes = [Bowman, Swordsman, Magician];          // доступные классы игрока
+    const userTypes = [Bowman, Swordsman, Magician];          // доступные классы пользователя
     const computerTypes = [Vampire, Undead, Daemon];          // доступные классы компьютера
     const positionedCharacters = [];                          // массив позиционированных персонажей 
 
-    const userTeam = generateTeam(userTypes, levelNumber, charactersNumber);                    // команда игрока
+    const userTeam = generateTeam(userTypes, levelNumber, charactersNumber);                    // команда пользователя
     const computerTeam = generateTeam(computerTypes, levelNumber, charactersNumber);            // команда компьютера
     
     positionedCharacters.push(...teamStart(userTeam, 'user', this.gamePlay.boardSize));
@@ -55,7 +55,7 @@ export default class GameController {
       computerTeam: computerTeam,
       positionedCharacters: positionedCharacters,
       lastIndex: null,
-      activePlayer: this.activePlayer,
+      activePlayer: 'user',
     });
     
     this.addingCellListener('Enter');
@@ -76,35 +76,78 @@ export default class GameController {
     this.gamePlay[listener](enterFunc);
  }
 
- onCellClick(index) {
+  onCellClick(index) {
     // TODO: react to click
 
-    if (GameState.state.activePlayer === 'user') {
+    let currentChar, tempArray;
 
-      if (GameState.getPositionCharacter(index) !== undefined) {
-        if (charType(index) === 'user') {
-          if (GameState.state.lastIndex != null) {
-            this.gamePlay.deselectCell(GameState.state.lastIndex);
-          }
-          this.gamePlay.selectCell(index);          
-          GameState.state.lastIndex = index;
-        } else {
-          GamePlay.showError("Чужой персонаж");
-        }
-
-      } else {
-        GamePlay.showError("Ячейка пуста");
-      }
+    if (GameState.state.activePlayer !== 'user') {
+      alert('Дождитесь хода противника');
+      return;
     }
+
+    if (GameState.getPositionCharacter(index) !== undefined) {                // в ячейке есть персонаж
+      if (charType(index) === 'user') {                                         // в ячейке персонаж пользователя
+        if (GameState.state.lastIndex != null) {
+          this.gamePlay.deselectCell(GameState.state.lastIndex);
+        }
+        this.gamePlay.selectCell(index);          
+        GameState.state.lastIndex = index;
+      } else {                                                                  // в ячейке персонаж компьютера
+        if (this.redIndex !== null) {                   // ранее был выбран персонаж пользователя и допустимый диапазон                                
+          currentChar = GameState.getPositionCharacter(GameState.state.lastIndex); 
+          const target = GameState.getPositionCharacter(this.redIndex);
+          const damage = Math.round(Math.max(currentChar.character.attack - target.character.defence, currentChar.character.attack * 0.1));
+          // this.points += damage;
+          tempArray = GameState.state.positionedCharacters.filter((elem) => elem !== target);
+          target.character.health = target.character.health - damage;
+          GameState.state.positionedCharacters = tempArray.concat(target);
+
+          this.gamePlay.showDamage(index, damage)
+            .then(() => {
+              // this.removeCharacter(target, index);
+              this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+            });
+          this.redIndex = null;
+          GameState.state.activePlayer ='bot';
+          } else {                                      // нет выбранного персонажа пользователя или ячейка вне допустимого диапазона атаки
+          GamePlay.showError("Недопустимое действие");
+        }
+      }
+
+    } else {                                                                  // пустая ячейка
+      if (this.greenIndex !== null) {                   // ранее был выбран персонаж пользователя и допустимый диапазон
+        currentChar = GameState.getPositionCharacter(GameState.state.lastIndex);
+        
+        tempArray = GameState.state.positionedCharacters.filter((elem) => elem !== currentChar);
+        currentChar.position = index;
+        GameState.state.positionedCharacters = tempArray.concat(currentChar);
+
+        this.gamePlay.deselectCell(GameState.state.lastIndex);
+        this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+        this.gamePlay.selectCell(index);
+        GameState.state.lastIndex = index;
+        this.greenIndex = null;
+        GameState.state.activePlayer ='bot';            
+      } else {                                          // нет выбранного персонажа пользователя или ячейка вне допустимого диапазона перемещений
+        GamePlay.showError("Недопустимое действие");
+      }                                                                
+    }     
   }
 
   onCellEnter(index) {
     // react to mouse enter
+    
+    let currentChar, charOwner;
 
-    let currentChar;
+    if (this.greenIndex !== null) {
+      this.gamePlay.deselectCell(this.greenIndex);
+      this.greenIndex = null;
+    }
 
-    if (this.aimIndex !== null) {
-      this.gamePlay.deselectCell(this.aimIndex);
+    if (this.redIndex !== null) {
+      this.gamePlay.deselectCell(this.redIndex);
+      this.redIndex = null;
     }
 
     if (GameState.state.lastIndex !== null) {
@@ -112,39 +155,41 @@ export default class GameController {
     }
 
     const nextChar = GameState.getPositionCharacter(index);
-    if (nextChar !== undefined) {                                        // в ячейке есть персонаж
-      const tooltip = tooltipString(nextChar.character);
-      this.gamePlay.showCellTooltip(tooltip, index);
-
-      if ((GameState.state.lastIndex !== null) && GameState.state.activePlayer === 'user') {
-        if (charType(index) === 'user') {                                                    // в ячейке персонаж игрока
-          this.gamePlay.setCursor(cursors.pointer);
-        } else if (charType(index) === 'bot') {                                             // в ячейке персонаж компьютера
-          if (allowedAttackRange(GameState.state.lastIndex, currentChar.character.longrange, this.gamePlay.boardSize).includes(index)) {
-            this.gamePlay.selectCell(index, 'red');
-            this.aimIndex = index;
-            this.gamePlay.setCursor(cursors.crosshair);
-          } else {
-            this.gamePlay.setCursor(cursors.notallowed);
-          }
-        }
-      }
-    } else {                                                                                  // пустая ячейка 
-      if (GameState.state.lastIndex !== null) {
+    if (nextChar == undefined) {                                        // пустая ячейка
+      if (GameState.state.lastIndex !== null && GameState.state.activePlayer === 'user') {
         if (allowedMoveRange(GameState.state.lastIndex, currentChar.character.moving, this.gamePlay.boardSize).includes(index)) {
           this.gamePlay.selectCell(index, 'green');
-          this.aimIndex = index;
+          this.greenIndex = index;
           this.gamePlay.setCursor(cursors.pointer);
         } else {
           this.gamePlay.setCursor(cursors.notallowed);
         }
       }
+    } else {                                                              // в ячейке есть персонаж 
+      const tooltip = tooltipString(nextChar.character);
+      this.gamePlay.showCellTooltip(tooltip, index);
+
+      charOwner = charType(index);
+      if ( GameState.state.activePlayer === 'user' ) {
+        if (charOwner === 'user') {                                                    // в ячейке персонаж пользователя
+          this.gamePlay.setCursor(cursors.pointer);
+        } else if (GameState.state.lastIndex !== null && charOwner === 'bot') {        // в ячейке персонаж компьютера
+          if (allowedAttackRange(GameState.state.lastIndex, currentChar.character.longrange, this.gamePlay.boardSize).includes(index)) {
+            this.gamePlay.selectCell(index, 'red');
+            this.redIndex = index;
+            this.gamePlay.setCursor(cursors.crosshair);
+          } else {
+            this.gamePlay.setCursor(cursors.notallowed);
+          }
+        }
+      }      
     }
   }
 
   onCellLeave(index) {
     // react to mouse leave
     this.gamePlay.hideCellTooltip(index);
+    this.gamePlay.setCursor(cursors.auto);
   }
 
 }
