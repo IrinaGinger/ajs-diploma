@@ -98,19 +98,18 @@ export default class GameController {
           currentChar = GameState.getPositionCharacter(GameState.state.lastIndex); 
           const target = GameState.getPositionCharacter(this.redIndex);
           const damage = Math.round(Math.max(currentChar.character.attack - target.character.defence, currentChar.character.attack * 0.1));
-          // this.points += damage;
+          
           tempArray = GameState.state.positionedCharacters.filter((elem) => elem !== target);
           target.character.health = target.character.health - damage;
           GameState.state.positionedCharacters = tempArray.concat(target);
 
           this.gamePlay.showDamage(index, damage)
             .then(() => {
-              // this.removeCharacter(target, index);
               this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
             });
           this.redIndex = null;
           GameState.state.activePlayer ='bot';
-          } else {                                      // нет выбранного персонажа пользователя или ячейка вне допустимого диапазона атаки
+        } else {                                      // нет выбранного персонажа пользователя или ячейка вне допустимого диапазона атаки
           GamePlay.showError("Недопустимое действие");
         }
       }
