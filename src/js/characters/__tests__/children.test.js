@@ -31,7 +31,7 @@ test('создается объект класса Daemon с правильны�
         type: 'daemon',
         health: 50,
         attack: 10,
-        defence: 10,
+        defence: 40,
         moving: 1,
         longrange: 4,
     }

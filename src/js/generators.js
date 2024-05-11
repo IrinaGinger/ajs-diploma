@@ -1,4 +1,5 @@
 import Team from './Team';
+import characterLevelUp from './modules/levelup';
 
 /**
  * Формирует экземпляр персонажа из массива allowedTypes со
@@ -15,7 +16,13 @@ export function* characterGenerator(allowedTypes, maxLevel) {
     let typeNumber = Math.floor(Math.random() * allowedTypes.length);
     let level = Math.floor(Math.random() * maxLevel) + 1;
     let randomClass = allowedTypes[typeNumber];
-    yield new randomClass(level);
+    let char = new randomClass(1);
+
+    for (let j = 2; j <= level; j++) {
+      char = characterLevelUp(char);
+    }
+
+    yield char;
   }
 }
 
@@ -29,6 +36,7 @@ export function* characterGenerator(allowedTypes, maxLevel) {
 export function generateTeam(allowedTypes, maxLevel, characterCount) {
   let charactersArray = [];
   const teamGenerator = characterGenerator(allowedTypes, maxLevel);
+
   for (let i = 0; i < characterCount; i++) {
     charactersArray.push(teamGenerator.next().value);
   }

@@ -10,6 +10,8 @@ import Daemon from './characters/Daemon';
 import {generateTeam} from './generators';
 import teamStart from './modules/teamstart';
 import charType from './modules/chartype';
+import compAction from './modules/compaction';
+import characterLevelUp from './modules/levelup';
 
 import tooltipString from './modules/tooltip';
 import {allowedMoveRange, allowedAttackRange} from './modules/range';
@@ -24,39 +26,56 @@ export default class GameController {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
 
+    this.gameLevel = 1;
+
+    this.charactersNumber = 2;                               // количество персонажей пользователя и компьютера
+    this.levelNumber = 4;                                    // количество уровней персонажей
+    this.userTypes = [Bowman, Swordsman, Magician];          // доступные классы пользователя
+    this.computerTypes = [Vampire, Undead, Daemon];          // доступные классы компьютера
+
     this.greenIndex = null;               // последняя ячейка, выделенная зеленым цветом
     this.redIndex = null;                 // последняя ячейка, выделенная красным цветом
+
+    this.userWin = 0;                     // кол-во побед пользователя
+
   }
 
   init() {
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
-    
-    let currentTheme = themes.prairie;
-    this.gamePlay.drawUi(currentTheme);
+   
+    this.gamePlay.drawUi(Object.values(themes)[this.gameLevel - 1]);
 
-    const charactersNumber = 2;                               // количество персонажей пользователя и компьютера
-    const levelNumber = 4;                                    // количество уровней персонажей
-    const userTypes = [Bowman, Swordsman, Magician];          // доступные классы пользователя
-    const computerTypes = [Vampire, Undead, Daemon];          // доступные классы компьютера
     const positionedCharacters = [];                          // массив позиционированных персонажей 
 
-    const userTeam = generateTeam(userTypes, levelNumber, charactersNumber);                    // команда пользователя
-    const computerTeam = generateTeam(computerTypes, levelNumber, charactersNumber);            // команда компьютера
-    
-    positionedCharacters.push(...teamStart(userTeam, 'user', this.gamePlay.boardSize));
-    positionedCharacters.push(...teamStart(computerTeam, 'bot', this.gamePlay.boardSize));  
+    if (this.gameLevel === 1) {
+      this.userTeam = generateTeam(this.userTypes, this.levelNumber, this.charactersNumber);                    // команда пользователя
+      positionedCharacters.push(...teamStart(this.userTeam, 'user', this.gamePlay.boardSize));
+    } else {
+      for (let i = 0; i < GameState.state.userTeam.characters.length; i++) {
+        GameState.state.positionedCharacters[i].character = characterLevelUp(GameState.state.positionedCharacters[i].character);
+        positionedCharacters.push(GameState.state.positionedCharacters[i]);
+      }
+    }
 
-    this.gamePlay.redrawPositions(positionedCharacters);
+    this.computerTeam = generateTeam(this.computerTypes, this.levelNumber, this.charactersNumber);            // команда компьютера
+    positionedCharacters.push(...teamStart(this.computerTeam, 'bot', this.gamePlay.boardSize));  
+
+    console.log('старт уровня ', this.gameLevel);
+    console.log('команда пользователя ', this.userTeam);
+    console.log('команда компьютера', this.computerTeam);
 
     GameState.from({
-      theme: currentTheme,
-      userTeam: userTeam,
-      computerTeam: computerTeam,
+      gameLevel: this.gameLevel,
+      userTeam: this.userTeam,
+      computerTeam: this.computerTeam,
       positionedCharacters: positionedCharacters,
       lastIndex: null,
       activePlayer: 'user',
+      userWin: this.userWin,
     });
+
+    this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
     
     this.addingCellListener('Enter');
     this.addingCellListener('Leave');
@@ -80,6 +99,9 @@ export default class GameController {
     // TODO: react to click
 
     let currentChar, tempArray;
+    let compActionFunc = compAction.bind(this);
+
+    console.log(GameState.state.activePlayer);
 
     if (GameState.state.activePlayer !== 'user') {
       alert('Дождитесь хода противника');
@@ -94,28 +116,60 @@ export default class GameController {
         this.gamePlay.selectCell(index);          
         GameState.state.lastIndex = index;
       } else {                                                                  // в ячейке персонаж компьютера
-        if (this.redIndex !== null) {                   // ранее был выбран персонаж пользователя и допустимый диапазон                                
-          currentChar = GameState.getPositionCharacter(GameState.state.lastIndex); 
+        if (this.redIndex !== null) {                   // ранее был выбран персонаж пользователя и допустимый диапазон атаки                             
+          currentChar = GameState.getPositionCharacter(GameState.state.lastIndex);
           const target = GameState.getPositionCharacter(this.redIndex);
           const damage = Math.round(Math.max(currentChar.character.attack - target.character.defence, currentChar.character.attack * 0.1));
           
           tempArray = GameState.state.positionedCharacters.filter((elem) => elem !== target);
-          target.character.health = target.character.health - damage;
+          target.character.health = Math.max(target.character.health - damage, 0);
           GameState.state.positionedCharacters = tempArray.concat(target);
 
+          console.log(`пользователь атаковал персонажем ${currentChar.character.type}, цель: ${target.character.type}, урон ${damage}, следующий ход компьютера`);
+          
+          this.redIndex = null;
+          this.gamePlay.deselectCell(GameState.state.lastIndex);
+          this.gamePlay.deselectCell(index);
+          GameState.state.activePlayer ='bot';
+           
           this.gamePlay.showDamage(index, damage)
             .then(() => {
+              if (target.character.health === 0) {
+                GameState.state.positionedCharacters = GameState.state.positionedCharacters.filter((elem) => elem !== target);
+                GameState.state.lastIndex = null;
+                GameState.state.computerTeam.characters.splice(GameState.state.computerTeam.characters.indexOf(target.character), 1);
+                
+                console.log(`смерть персонажа ${target.character.type}`);
+              }
+
               this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+
+              if (GameState.state.computerTeam.characters.length === 0) {
+                GamePlay.removeEventListeners();
+                GamePlay.showMessage('Уровень пройден');
+
+                this.userWin += 1;
+                GameState.state.userWin = this.userWin;
+
+                if (this.gameLevel < 4) {
+                  this.gameLevel += 1;
+                  GameState.state.gameLevel = this.gameLevel;
+                  this.init();
+                } else {
+                  GamePlay.showMessage('Игра завершена. Вы победили!');
+                }                
+              } else {
+                compActionFunc(this.gamePlay.boardSize);
+              }
             });
-          this.redIndex = null;
-          GameState.state.activePlayer ='bot';
+          
         } else {                                      // нет выбранного персонажа пользователя или ячейка вне допустимого диапазона атаки
           GamePlay.showError("Недопустимое действие");
         }
       }
 
     } else {                                                                  // пустая ячейка
-      if (this.greenIndex !== null) {                   // ранее был выбран персонаж пользователя и допустимый диапазон
+      if (this.greenIndex !== null) {                   // ранее был выбран персонаж пользователя и допустимый диапазон перемещения
         currentChar = GameState.getPositionCharacter(GameState.state.lastIndex);
         
         tempArray = GameState.state.positionedCharacters.filter((elem) => elem !== currentChar);
@@ -123,11 +177,16 @@ export default class GameController {
         GameState.state.positionedCharacters = tempArray.concat(currentChar);
 
         this.gamePlay.deselectCell(GameState.state.lastIndex);
+        this.gamePlay.deselectCell(index);
         this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
-        this.gamePlay.selectCell(index);
+        
+        console.log(`пользователь переместил персонажа ${currentChar.character.type} с поз. ${GameState.state.lastIndex} на поз. ${index}, следующий ход компьютера`);
         GameState.state.lastIndex = index;
         this.greenIndex = null;
-        GameState.state.activePlayer ='bot';            
+        GameState.state.activePlayer ='bot';
+
+        compActionFunc(this.gamePlay.boardSize);         
+           
       } else {                                          // нет выбранного персонажа пользователя или ячейка вне допустимого диапазона перемещений
         GamePlay.showError("Недопустимое действие");
       }                                                                
@@ -154,6 +213,7 @@ export default class GameController {
     }
 
     const nextChar = GameState.getPositionCharacter(index);
+    
     if (nextChar == undefined) {                                        // пустая ячейка
       if (GameState.state.lastIndex !== null && GameState.state.activePlayer === 'user') {
         if (allowedMoveRange(GameState.state.lastIndex, currentChar.character.moving, this.gamePlay.boardSize).includes(index)) {
