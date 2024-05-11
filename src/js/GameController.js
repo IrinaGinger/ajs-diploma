@@ -80,6 +80,9 @@ export default class GameController {
     this.addingCellListener('Enter');
     this.addingCellListener('Leave');
     this.addingCellListener('Click');
+
+    let newGameFunc = this.newGameCall.bind(this);
+    this.gamePlay.addNewGameListener(newGameFunc);
   }
 
   // формирование слушателя соответствующего типа с вызовом соответствующего callback
@@ -93,6 +96,13 @@ export default class GameController {
     
     let enterFunc = this[callback].bind(this);
     this.gamePlay[listener](enterFunc);
+ }
+
+ // старт новой игры
+ newGameCall() {
+  GamePlay.removeEventListeners();
+  this.gameLevel = 1;
+  this.init();
  }
 
   onCellClick(index) {
