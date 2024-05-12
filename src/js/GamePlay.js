@@ -173,11 +173,13 @@ export default class GamePlay {
   onSaveGameClick(event) {
     event.preventDefault();
     this.saveGameListeners.forEach(o => o.call(null));
+    console.log(this.saveGameListeners);
   }
 
   onLoadGameClick(event) {
     event.preventDefault();
     this.loadGameListeners.forEach(o => o.call(null));
+    console.log(this.loadGameListeners);
   }
 
   static showError(message) {

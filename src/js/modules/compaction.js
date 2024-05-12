@@ -8,8 +8,6 @@ export default function compAction(boardSize) {
   let compTeamPositioned = [];
   let tempArray = [];
 
-  console.log(GameState.state.activePlayer);
-  
   GameState.state.positionedCharacters.forEach(elem => {
     for (let i = 0; i < GameState.state.userTeam.characters.length; i++) {
       if (elem.character.type === GameState.state.userTeam.characters[i].type && !userTeamPositioned.includes(elem)) {

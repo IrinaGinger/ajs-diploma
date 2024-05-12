@@ -33,6 +33,7 @@ export default class GameController {
     this.userTypes = [Bowman, Swordsman, Magician];          // доступные классы пользователя
     this.computerTypes = [Vampire, Undead, Daemon];          // доступные классы компьютера
 
+    this.lastIndex = null;                // последняя выбранная ячейка с персонажем пользователя
     this.greenIndex = null;               // последняя ячейка, выделенная зеленым цветом
     this.redIndex = null;                 // последняя ячейка, выделенная красным цветом
 
@@ -70,7 +71,7 @@ export default class GameController {
       userTeam: this.userTeam,
       computerTeam: this.computerTeam,
       positionedCharacters: positionedCharacters,
-      lastIndex: null,
+      lastIndex: this.lastIndex,
       activePlayer: 'user',
       userWin: this.userWin,
     });
@@ -83,6 +84,12 @@ export default class GameController {
 
     let newGameFunc = this.newGameCall.bind(this);
     this.gamePlay.addNewGameListener(newGameFunc);
+
+    let saveGameFunc = this.saveGameCall.bind(this);
+    this.gamePlay.addSaveGameListener(saveGameFunc);
+
+    let loadGameFunc = this.loadGameCall.bind(this);
+    this.gamePlay.addLoadGameListener(loadGameFunc);
   }
 
   // формирование слушателя соответствующего типа с вызовом соответствующего callback
@@ -96,22 +103,34 @@ export default class GameController {
     
     let enterFunc = this[callback].bind(this);
     this.gamePlay[listener](enterFunc);
- }
+  }
 
- // старт новой игры
- newGameCall() {
-  GamePlay.removeEventListeners();
-  this.gameLevel = 1;
-  this.init();
- }
+  // старт новой игры
+  newGameCall() {
+    GamePlay.removeEventListeners();
+    this.gameLevel = 1;
+    this.init();
+  }
+
+  // сохранение игры
+  saveGameCall() {
+    this.stateService.save(GameState.state);
+  }
+
+  // загрузка состояния игры
+  loadGameCall() {
+    GameState.from(this.stateService.load());
+    this.gameLevel = GameState.state.gameLevel;
+    this.userTeam = GameState.state.userTeam;
+    this.computerTeam = GameState.state.computerTeam;
+    this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+  }
 
   onCellClick(index) {
     // TODO: react to click
 
     let currentChar, tempArray;
     let compActionFunc = compAction.bind(this);
-
-    console.log(GameState.state.activePlayer);
 
     if (GameState.state.activePlayer !== 'user') {
       alert('Дождитесь хода противника');
@@ -120,7 +139,7 @@ export default class GameController {
 
     if (GameState.getPositionCharacter(index) !== undefined) {                // в ячейке есть персонаж
       if (charType(index) === 'user') {                                         // в ячейке персонаж пользователя
-        if (GameState.state.lastIndex != null) {
+        if (GameState.state.lastIndex !== null) {
           this.gamePlay.deselectCell(GameState.state.lastIndex);
         }
         this.gamePlay.selectCell(index);          
