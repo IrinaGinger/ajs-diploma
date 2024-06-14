@@ -54,12 +54,9 @@ export default class GamePlay {
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       const cellEl = document.createElement('div');
       cellEl.classList.add('cell', 'map-tile', `map-tile-${calcTileType(i, this.boardSize)}`);
-      this.onCellEnterHandler = this.onCellEnter.bind(this);
-      cellEl.addEventListener('mouseenter', this.onCellEnterHandler);
-      this.onCellLeaveHandler = this.onCellLeave.bind(this);
-      cellEl.addEventListener('mouseleave', this.onCellLeaveHandler);
-      this.onCellClickHandler = this.onCellClick.bind(this);
-      cellEl.addEventListener('click', this.onCellClickHandler);
+      cellEl.addEventListener('mouseenter', event => this.onCellEnter(event));
+      cellEl.addEventListener('mouseleave', event => this.onCellLeave(event));
+      cellEl.addEventListener('click', event => this.onCellClick(event));
       this.boardEl.appendChild(cellEl);
     }
 
@@ -173,13 +170,11 @@ export default class GamePlay {
   onSaveGameClick(event) {
     event.preventDefault();
     this.saveGameListeners.forEach(o => o.call(null));
-    console.log(this.saveGameListeners);
   }
 
   onLoadGameClick(event) {
     event.preventDefault();
     this.loadGameListeners.forEach(o => o.call(null));
-    console.log(this.loadGameListeners);
   }
 
   static showError(message) {
@@ -234,17 +229,16 @@ export default class GamePlay {
     }
   }
 
-  static removeEventListeners() {
-    const cellElAll = document.querySelectorAll('.cell');
-    for (let i = 0; i < cellElAll.length; i += 1) {
-      cellElAll[i].removeEventListener('mouseenter', this.onCellEnterHandler);
-      cellElAll[i].removeEventListener('mouseleave', this.oonCellLeaveHandler);
-      cellElAll[i].removeEventListener('click', this.onCellClickHandler);
-    }
-
+  removeCellListeners() {
     this.cellClickListeners = [];
     this.cellEnterListeners = [];
     this.cellLeaveListeners = [];
+  }
+
+  removeGameListeners() {
+    this.newGameListeners = [];
+    this.saveGameListeners = [];
+    this.loadGameListeners = [];
   }
 
 }

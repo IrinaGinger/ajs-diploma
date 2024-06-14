@@ -5,7 +5,7 @@ export default class Undead extends Character {
     super(level, 'undead');
     this.attack = 40;                   
     this.defence = 10; 
-    this.moving = 4;
-    this.longrange = 1;
+    this.moving = 4;                      // допустимая дальность перемещений
+    this.longrange = 1;                   // допустимая дальность атаки
   } 
 }

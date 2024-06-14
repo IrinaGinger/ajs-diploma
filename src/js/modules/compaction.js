@@ -1,23 +1,22 @@
 import GamePlay from '../GamePlay';
-import GameState from '../GameState';
 import {allowedMoveRange, allowedAttackRange} from './range';
 
-export default function compAction(boardSize) {
+export default function compAction() {
+// gameState, boardSize
+
   // формируем позиционированные списки команд пользователя и компьютера
   let userTeamPositioned = [];
   let compTeamPositioned = [];
   let tempArray = [];
 
-  GameState.state.positionedCharacters.forEach(elem => {
-    for (let i = 0; i < GameState.state.userTeam.characters.length; i++) {
-      if (elem.character.type === GameState.state.userTeam.characters[i].type && !userTeamPositioned.includes(elem)) {
+  this.gameState.positionedCharacters.forEach(elem => {
+    for (let i = 0; i < this.gameState.userTeam.characters.length; i++) {
+      if (elem.character.type === this.gameState.userTeam.characters[i].type && !userTeamPositioned.includes(elem)) {
         userTeamPositioned.push(elem);
       }
     }
-    for (let i = 0; i < GameState.state.computerTeam.characters.length; i++) {
-      // console.log(GameState.state.computerTeam.characters[i].type);
-
-      if (elem.character.type === GameState.state.computerTeam.characters[i].type && !compTeamPositioned.includes(elem)) {
+    for (let i = 0; i < this.gameState.computerTeam.characters.length; i++) {
+      if (elem.character.type === this.gameState.computerTeam.characters[i].type && !compTeamPositioned.includes(elem)) {
         compTeamPositioned.push(elem);
       }
     }
@@ -39,36 +38,36 @@ export default function compAction(boardSize) {
     
     userTeamPositioned.forEach(elem => {
       // выбираем первого персонажа пользователя, который находится в диапазоне атаки
-      if (allowedAttackRange(currentChar.position, currentChar.character.longrange, boardSize).includes(elem.position)) {  
+      if (allowedAttackRange(currentChar.position, currentChar.character.longrange, this.gamePlay.boardSize).includes(elem.position)) {  
 
-        if (GameState.state.activePlayer ==='bot') {
-          const target = GameState.getPositionCharacter(elem.position);
+        if (this.gameState.activePlayer ==='bot') {
+          const target = this.gameState.getPositionCharacter(elem.position);
           const damage = Math.round(Math.max(currentChar.character.attack - target.character.defence, currentChar.character.attack * 0.1));
           
-          tempArray = GameState.state.positionedCharacters.filter((item) => item !== target);
+          tempArray = this.gameState.positionedCharacters.filter((item) => item !== target);
           target.character.health = Math.max(target.character.health - damage, 0);
-          GameState.state.positionedCharacters = tempArray.concat(target);
+          this.gameState.positionedCharacters = tempArray.concat(target);
           
-          GameState.state.activePlayer ='user';
-          console.log(`компьютер атаковал персонажем ${currentChar.character.type}, цель: ${target.character.type}, урон ${damage}, следующий ход пользователя`);
-
+          this.gameState.activePlayer ='user';
+          
           this.gamePlay.showDamage(elem.position, damage)
             .then(() => {
+              console.log(`компьютер атаковал персонажем ${currentChar.character.type}, цель: ${target.character.type}, урон ${damage}, следующий ход пользователя`);
+
               if (target.character.health === 0) {
-                GameState.state.positionedCharacters = GameState.state.positionedCharacters.filter((item) => item !== target);
-                GameState.state.userTeam.characters.splice(GameState.state.userTeam.characters.indexOf(target.character), 1);
+                this.gameState.positionedCharacters = this.gameState.positionedCharacters.filter((item) => item !== target);
+                this.gameState.userTeam.characters.splice(this.gameState.userTeam.characters.indexOf(target.character), 1);
                 
-                GameState.state.lastIndex = null;
+                this.gameState.lastIndex = null;
                 console.log(`смерть персонажа ${target.character.type}`);
               }
 
-              this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+              this.gamePlay.redrawPositions(this.gameState.positionedCharacters);
 
-              if (GameState.state.userTeam.characters.length === 0) {
-                GamePlay.removeEventListeners(); 
+              if (this.gameState.userTeam.characters.length === 0) {
                 GamePlay.showMessage('Game Over');
               }
-              
+
               return;
             });
         }
@@ -77,16 +76,16 @@ export default function compAction(boardSize) {
   });
   
   // если не нашлось ни одного персонажа пользователя в диапазоне атаки всех персонажей компьютера
-  if (GameState.state.activePlayer ==='bot') {
+  if (this.gameState.activePlayer === 'bot') {
     let compMovingArray = [];
     let userSurround = [];
     let newPosition = -1;
 
     compTeamPositioned.forEach(currentChar => {
       // формируем массив из всех возможных точек перемещения персонажа компьютера
-      compMovingArray = allowedMoveRange(currentChar.position, currentChar.character.moving, boardSize);
+      compMovingArray = allowedMoveRange(currentChar.position, currentChar.character.moving, this.gamePlay.boardSize);
 
-      GameState.state.positionedCharacters.forEach(elem => {
+      this.gameState.positionedCharacters.forEach(elem => {
         // удаляем из допустимого диапазона позиции, занятые другими персонажами
         if (compMovingArray.includes(elem.position)) {
           compMovingArray.filter(item => {item !== elem.position})
@@ -97,7 +96,7 @@ export default function compAction(boardSize) {
         if (newPosition < 0) {
 
           // формируем массив клеток, из которых можно осуществить атаку на персонажа пользователя 
-          userSurround = allowedAttackRange(userTeamPositioned[j].position, currentChar.character.longrange, boardSize);
+          userSurround = allowedAttackRange(userTeamPositioned[j].position, currentChar.character.longrange, this.gamePlay.boardSize);
                   
           // проверяем, можно ли подойти на расстояние атаки к персонажу игрока
           for (let i = 0; i < compMovingArray.length; i++) {
@@ -107,13 +106,13 @@ export default function compAction(boardSize) {
               // удаляем персонажа компьютера из текущей позиции и присваиваем ему новую
               console.log(`компьютер переместил персонажа ${currentChar.character.type} с поз. ${currentChar.position} на поз. ${newPosition}, следующий ход пользователя`);
               
-              tempArray = GameState.state.positionedCharacters.filter(elem => elem !== currentChar);
+              tempArray = this.gameState.positionedCharacters.filter(elem => elem !== currentChar);
               currentChar.position = newPosition;
-              GameState.state.positionedCharacters = tempArray.concat(currentChar);
+              this.gameState.positionedCharacters = tempArray.concat(currentChar);
 
-              this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+              this.gamePlay.redrawPositions(this.gameState.positionedCharacters);
                             
-              GameState.state.activePlayer ='user';
+              this.gameState.activePlayer ='user';
               break;
             }
           }
@@ -123,11 +122,11 @@ export default function compAction(boardSize) {
       
     // если на расстояние атаки к персонажу пользователя подойти нельзя
     // перемещаем самого сильного персонажа компьютера на максимально близкое расстояние
-    if (GameState.state.activePlayer ==='bot') {
+    if (this.gameState.activePlayer === 'bot') {
       let currentRange = 1;
-      compMovingArray = allowedMoveRange(compTeamPositioned[0].position, compTeamPositioned[0].character.moving, boardSize);
+      compMovingArray = allowedMoveRange(compTeamPositioned[0].position, compTeamPositioned[0].character.moving, this.gamePlay.boardSize);
 
-      GameState.state.positionedCharacters.forEach(elem => {
+      this.gameState.positionedCharacters.forEach(elem => {
         // удаляем из допустимого диапазона позиции, занятые другими персонажами
         if (compMovingArray.includes(elem.position)) {
           compMovingArray.filter(item => {item !== elem.position})
@@ -135,7 +134,7 @@ export default function compAction(boardSize) {
       })    
 
       for (let i = 0; i < userTeamPositioned.length; i++) {
-        userSurround.push(allowedAttackRange(userTeamPositioned[i].position, compTeamPositioned[0].character.longrange, boardSize));
+        userSurround.push(allowedAttackRange(userTeamPositioned[i].position, compTeamPositioned[0].character.longrange, this.gamePlay.boardSize));
       }
 
       while (newPosition < 0) {
@@ -143,19 +142,19 @@ export default function compAction(boardSize) {
           if (newPosition < 0) {
             for (let j = 0; j < userSurround.length; j++) {
               if (Math.abs(compMovingArray[i] - userSurround[j]) === currentRange || 
-              Math.abs(compMovingArray[i] - userSurround[j]) === boardSize + currentRange - 1) {
+              Math.abs(compMovingArray[i] - userSurround[j]) === this.gamePlay.boardSize + currentRange - 1) {
                 newPosition = compMovingArray[i];
                 
                 // удаляем персонажа компьютера из текущей позиции и присваиваем ему новую
                 console.log(`компьютер переместил персонажа ${compTeamPositioned[0].character.type} с поз. ${compTeamPositioned[0].position} на поз. ${newPosition}, следующий ход пользователя`);
                 
-                tempArray = GameState.state.positionedCharacters.filter((elem) => elem !== compTeamPositioned[0]);
+                tempArray = this.gameState.positionedCharacters.filter((elem) => elem !== compTeamPositioned[0]);
                 compTeamPositioned[0].position = newPosition;
-                GameState.state.positionedCharacters = tempArray.concat(compTeamPositioned[0]);
+                this.gameState.positionedCharacters = tempArray.concat(compTeamPositioned[0]);
 
-                this.gamePlay.redrawPositions(GameState.state.positionedCharacters);
+                this.gamePlay.redrawPositions(this.gameState.positionedCharacters);
                               
-                GameState.state.activePlayer ='user';
+                this.gameState.activePlayer ='user';
                 break;
               }
             }
@@ -164,8 +163,6 @@ export default function compAction(boardSize) {
         currentRange += 1;
       }
     }
-
     return;
-    
   }
 }

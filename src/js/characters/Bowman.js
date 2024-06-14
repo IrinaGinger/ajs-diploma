@@ -5,7 +5,7 @@ export default class Bowman extends Character {
     super(level, 'bowman');
     this.attack = 25;                   
     this.defence = 25; 
-    this.moving = 2;
-    this.longrange = 2;
+    this.moving = 2;                  // допустимая дальность перемещений
+    this.longrange = 2;               // допустимая дальность атаки
   } 
 }
